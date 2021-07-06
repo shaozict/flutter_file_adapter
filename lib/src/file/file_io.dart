@@ -1,3 +1,5 @@
+import 'dart:io';
+
 export 'dart:io' show File;
 
 class GlobalFileStore {
