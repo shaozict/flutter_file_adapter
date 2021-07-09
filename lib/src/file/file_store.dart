@@ -55,8 +55,8 @@ class GlobalFileStore {
     storage.rename(path, newPath);
   }
 
-  String globalPath(String path) {
-    html.File file = fileSourceMap[path]!;
+  Future<String> globalPath(String path) {
+    html.File file = storage.read(path);
     String gPath = html.Url.createObjectUrl(file);
     return gPath;
   }
