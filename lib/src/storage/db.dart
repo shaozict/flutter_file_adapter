@@ -11,6 +11,7 @@ class IndexDb implements Storage {
   });
   final String storeName;
   final int version;
+  final dbSourceMapKey = 'DB_SOURCE_MAP_KEY';
   Database? db;
 
   Map<String, dynamic> sourceMap = {};
@@ -26,10 +27,16 @@ class IndexDb implements Storage {
       Database db = await html.window.indexedDB!.open(
         'my_indexed_db',
         version: this.version,
+        onUpgradeNeeded: (event) {
+          // 保存 IDBDataBase 接口
+          var db = event.target.result;
+          // 为该数据库创建一个对象仓库
+          if (!db.objectStoreNames!.contains(this.storeName)) {
+            db.createObjectStore(this.storeName);
+          }
+        },
       );
-      if (!db.objectStoreNames!.contains(this.storeName)) {
-        db.createObjectStore(this.storeName);
-      }
+
       this.db = db;
       // 设置同步内容key存在表
       List<String> keys = await this.getAllKeys();
@@ -47,7 +54,8 @@ class IndexDb implements Storage {
     String key,
     dynamic value,
   ) async {
-    await db!.transaction(this.storeName, 'readwrite').objectStore(this.storeName).put(value, key);
+    await Future.wait([_write(key, value), setKey(key)]);
+
     _setSourceMap(key, true);
     return value;
   }
@@ -58,7 +66,7 @@ class IndexDb implements Storage {
     dynamic value,
   ) {
     _setSourceMap(key, value);
-    write(key, value).then((value) {
+    _write(key, value).then((value) {
       _setSourceMap(key, true);
     });
     return value;
@@ -66,21 +74,19 @@ class IndexDb implements Storage {
 
   /// 获取数据
   Future<dynamic> read(String key) async {
-    dynamic request = await db!.transaction(this.storeName, 'readonly').objectStore(this.storeName).getObject(key);
+    dynamic request = await _read(key);
     return request;
   }
 
   /// 移除数据
-  remove(String key) async {
-    dynamic request = await db!.transaction(this.storeName, 'readwrite').objectStore(this.storeName).delete(key);
+  Future<void> remove(String key) async {
+    await Future.wait([db!.transaction(this.storeName, 'readwrite').objectStore(this.storeName).delete(key), removeKey(key)]);
     _remove(key);
-    return request.result;
   }
 
   /// 判断是否存在数据
   Future<bool> exists(String key) async {
-    int count = await db!.transaction(this.storeName, 'readonly').objectStore(this.storeName).count(key);
-    return count > 0;
+    return await _exists(key);
   }
 
   /// 判断是否存在数据，同步
@@ -91,14 +97,14 @@ class IndexDb implements Storage {
   /// 清空数据
   Future<void> clear() async {
     _clearSourceMap();
-    return await db!.transaction(this.storeName, 'readwrite').objectStore(this.storeName).clear();
+    await Future.wait([db!.transaction(this.storeName, 'readwrite').objectStore(this.storeName).clear(), remove(dbSourceMapKey)]);
   }
 
   /// 重名面
   @override
   Future<void> rename(String key, String newKey) async {
     if (existsSync(key)) {
-      dynamic data = await read(key);
+      dynamic data = await _read(key);
       await write(newKey, data);
       return;
     }
@@ -106,8 +112,30 @@ class IndexDb implements Storage {
 
   /// 获取存储内容所有key
   Future<List<String>> getAllKeys() async {
-    dynamic request = await db!.transaction(this.storeName, 'readonly').objectStore(this.storeName).getAllKeys({});
-    return request.result;
+    if (await _exists(dbSourceMapKey)) {
+      return await _read(dbSourceMapKey);
+    }
+    return Future.value([]);
+  }
+
+  /// 设置存储记录
+  Future<void> setKey(String key) async {
+    if (!await _exists(dbSourceMapKey)) {
+      await _write(dbSourceMapKey, [key]);
+    } else {
+      List keys = await _read(dbSourceMapKey);
+      keys.add(key);
+      await _write(dbSourceMapKey, keys);
+    }
+  }
+
+  /// 移除记录
+  Future<void> removeKey(String key) async {
+    if (await _exists(dbSourceMapKey)) {
+      List keys = await _read(dbSourceMapKey);
+      keys.remove(key);
+      await _write(dbSourceMapKey, keys);
+    }
   }
 
   _setKeysForSourceMap(List<String> keys) {
@@ -126,5 +154,26 @@ class IndexDb implements Storage {
 
   _remove(String key) {
     sourceMap.remove(key);
+  }
+
+  Future<dynamic> _read(String key) async {
+    dynamic request = await db!.transaction(this.storeName, 'readonly').objectStore(this.storeName).getObject(key);
+
+    return request;
+  }
+
+  Future<dynamic> _write(
+    String key,
+    dynamic value,
+  ) async {
+    await db!.transaction(this.storeName, 'readwrite').objectStore(this.storeName).put(value, key);
+
+    return value;
+  }
+
+  Future<bool> _exists(String key) async {
+    int count = await db!.transaction(this.storeName, 'readonly').objectStore(this.storeName).count(key);
+
+    return count > 0;
   }
 }

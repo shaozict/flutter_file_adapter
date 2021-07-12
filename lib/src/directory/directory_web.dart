@@ -5,7 +5,7 @@ class Directory {
   final String path;
 
   bool existsSync() {
-    return false;
+    return true;
   }
 
   void deleteSync({bool recursive = false}) {

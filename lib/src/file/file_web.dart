@@ -23,14 +23,14 @@ class File {
     return false;
   }
 
-  Future<File> writeAsBytes(List<int> bytes, {bool flush = false}) {
+  Future<File> writeAsBytes(List<int> bytes, {bool flush = false}) async {
     Completer<File> _completer = Completer<File>();
     String fileName = path;
     if (path.contains('/')) {
       fileName = path.split('/').last;
     }
     html.File file = GlobalFileStore.instance.readBitsAsFile(bytes, fileName);
-    GlobalFileStore.instance.store(
+    await GlobalFileStore.instance.store(
       path,
       file,
       bytes: bytes,
@@ -45,14 +45,14 @@ class File {
       fileName = path.split('/').last;
     }
     html.File file = GlobalFileStore.instance.readBitsAsFile(bytes, fileName);
-    GlobalFileStore.instance.store(
+    GlobalFileStore.instance.storeAsync(
       path,
       file,
       bytes: bytes,
     );
   }
 
-  Future<Uint8List> readAsBytes(path) async {
+  Future<Uint8List> readAsBytes() async {
     return await GlobalFileStore.instance.readAsBytes(path);
   }
 

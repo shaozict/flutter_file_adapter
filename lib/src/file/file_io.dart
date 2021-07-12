@@ -12,6 +12,8 @@ class GlobalFileStore {
 
   static GlobalFileStore _getInstance() => _instance;
 
+  Future<void> ready() async {}
+
   bool existsSync(String path) {
     return false;
   }

@@ -35,11 +35,17 @@ class GlobalFileStore {
     return html.File([fileBits], fileName, {'type': ''});
   }
 
-  String store(String path, html.File file, {List<int>? bytes}) {
+  Future<String> store(String path, html.File file, {List<int>? bytes}) async {
     storage.write(path, file);
     if (bytes!.isNotEmpty) {
-      storage.write('$path.bytes', file);
+      await storage.write('$path.bytes', file);
+      return path;
     }
+    return Future.value(path);
+  }
+
+  String storeAsync(String path, html.File file, {List<int>? bytes}) {
+    storage.writeAsync(path, file);
     return path;
   }
 
