@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:html' as html;
 import 'dart:typed_data';
 
+import 'package:logging/logging.dart';
+
 import 'file_store.dart';
 
 export 'file_store.dart';
+
+Logger _log = Logger('file_Web');
 
 class File {
   File(this.path);
@@ -31,7 +35,6 @@ class File {
       file,
       bytes: bytes,
     );
-    // print('file writeAsBytes path: $path, ${bytes.length}');
     _completer.complete(this);
     return _completer.future;
   }
@@ -42,7 +45,6 @@ class File {
       fileName = path.split('/').last;
     }
     html.File file = GlobalFileStore.instance.readBitsAsFile(bytes, fileName);
-    // print('file writeAsBytesSync path: $path, ${bytes.length}');
     GlobalFileStore.instance.store(
       path,
       file,
@@ -50,30 +52,14 @@ class File {
     );
   }
 
-  Future<Uint8List> readAsBytes() {
-    Completer<Uint8List> _completer = Completer<Uint8List>();
-    html.File file = GlobalFileStore.instance.readAsFile(path)!;
-    html.FileReader reader = html.FileReader();
-    List<int> list = [];
-    if (GlobalFileStore.instance.existsSync(path)) {
-      list = GlobalFileStore.instance.readAsBytesAsync(path)!;
-      _completer.complete(Uint8List.fromList(list));
-      return _completer.future;
-    }
-    reader.onLoad.listen((event) {
-      _completer.complete(Uint8List.fromList(list));
-    });
-    reader.readAsArrayBuffer(file);
-    return _completer.future;
+  Future<Uint8List> readAsBytes(path) async {
+    return await GlobalFileStore.instance.readAsBytes(path);
   }
 
   Uint8List readAsBytesSync() {
     // 支持直接存储二进制
-    assert(true, 'web端不支持同步读取文件');
-    List<int> list = GlobalFileStore.instance.readAsBytesAsync(path)!;
-    if (list.isEmpty) {
-      list = [];
-    }
+    _log.info('web端不支持同步读取文件');
+    List<int> list = [];
     return Uint8List.fromList(list);
   }
 

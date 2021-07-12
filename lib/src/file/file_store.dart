@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:html' as html;
+import 'dart:typed_data';
 
 import 'package:flutter_file_adapter/src/storage/implements.dart';
 import 'package:flutter_file_adapter/src/storage/storage.dart';
@@ -55,45 +57,41 @@ class GlobalFileStore {
     storage.rename(path, newPath);
   }
 
-  Future<String> globalPath(String path) {
-    html.File file = storage.read(path);
+  Future<String> globalPath(String path) async {
+    html.File file = await storage.read(path);
     String gPath = html.Url.createObjectUrl(file);
     return gPath;
   }
 
-  String bytesToPath(List<Object> fileBits) {
+  String bytesToGlobalPath(List<Object> fileBits) {
     html.File file = readBitsAsFile(fileBits, '');
-    String path = html.Url.createObjectUrl(file);
-    fileSourceMap.addAll({'$path': file});
-    return path;
+    String globalPath = html.Url.createObjectUrl(file);
+    return globalPath;
   }
 
-  html.File? readAsFile(String path) {
-    if (fileSourceMap.containsKey(path)) {
-      return fileSourceMap[path];
-    }
-    if (fileReNameMap.containsKey(path)) {
-      String rePath = fileReNameMap[path]!;
-      return fileSourceMap[rePath];
-    }
-    return null;
+  Future<html.File> readAsFile(String path) async {
+    return await storage.read(path);
   }
 
-  List<int>? readAsBytesAsync(String path) {
-    if (fileSourceBytesMap.containsKey(path)) {
-      return fileSourceBytesMap[path];
+  Future<Uint8List> readAsBytes(String path) async {
+    Completer<Uint8List> _completer = Completer<Uint8List>();
+    html.File file = await storage.read(path);
+    if (storage.existsSync('$path.bytes')) {
+      Uint8List list = await storage.read('$path.bytes');
+      _completer.complete(Uint8List.fromList(list));
+      return _completer.future;
     }
-    if (fileReNameMap.containsKey(path)) {
-      String rePath = fileReNameMap[path]!;
-      return fileSourceBytesMap[rePath];
-    }
-    return null;
+    return await readFileToBytes(file);
   }
 
-  bool pathIsExist(String path) {
-    if (fileSourceMap.containsKey(path)) {
-      return true;
-    }
-    return false;
+  Future<Uint8List> readFileToBytes(html.File file) async {
+    html.FileReader reader = html.FileReader();
+    Completer<Uint8List> _completer = Completer<Uint8List>();
+    List<int> list = [];
+    reader.onLoad.listen((event) {
+      _completer.complete(Uint8List.fromList(list));
+    });
+    reader.readAsArrayBuffer(file);
+    return _completer.future;
   }
 }
